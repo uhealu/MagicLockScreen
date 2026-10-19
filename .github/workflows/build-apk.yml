@@ -1,0 +1,65 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置 JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        cache: 'gradle'
+
+    - name: 授予 Gradle 执行权限
+      run: chmod +x gradlew
+
+    - name: 构建 Debug APK
+      run: ./gradlew assembleDebug --stacktrace
+
+    - name: 上传 APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: magic-lockscreen-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 30
+
+    - name: 创建 Release (仅在推送到主分支时)
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        name: 魔术锁屏 v1.0.${{ github.run_number }}
+        body: |
+          ## 🎭 魔术锁屏应用
+
+          ### 功能
+          - 仿小米锁屏界面
+          - 密码输入始终显示错误
+          - 在桌面上显示输入的密码
+
+          ### 使用方法
+          1. 下载 `app-debug.apk`
+          2. 传输到手机并安装
+          3. 允许"安装未知来源"权限
+          4. 启动应用开始使用
+
+          ### 注意事项
+          - 仅供娱乐和魔术表演使用
+          - 在自己的设备上演示
+        files: app/build/outputs/apk/debug/app-debug.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
