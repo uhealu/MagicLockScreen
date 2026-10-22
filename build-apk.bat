@@ -1,53 +1,50 @@
 @echo off
-chcp 65001 >nul
 echo ========================================
-echo 🎭 魔术锁屏 APK 构建脚本
+echo Magic LockScreen APK Builder
 echo ========================================
 echo.
 
-echo [1/3] 检查环境...
+echo [1/3] Checking environment...
 if not exist "gradlew.bat" (
-    echo ❌ 错误: 请在项目根目录运行此脚本
+    echo ERROR: Please run this script in project root directory
     pause
     exit /b 1
 )
 
-echo [2/3] 清理旧的构建文件...
+echo [2/3] Cleaning old build files...
 call gradlew.bat clean
 
 echo.
-echo [3/3] 开始构建 APK...
-echo ⏳ 这可能需要 5-10 分钟（首次运行会下载依赖）
+echo [3/3] Building APK...
+echo This may take 5-10 minutes for first time (downloading dependencies)
 echo.
 call gradlew.bat assembleDebug
 
 echo.
 if exist "app\build\outputs\apk\debug\app-debug.apk" (
     echo ========================================
-    echo ✅ 构建成功！
+    echo BUILD SUCCESS!
     echo ========================================
     echo.
-    echo 📦 APK 位置:
+    echo APK Location:
     echo %cd%\app\build\outputs\apk\debug\app-debug.apk
     echo.
-    echo 文件大小:
-    for %%F in ("app\build\outputs\apk\debug\app-debug.apk") do echo %%~zF 字节 (约 %%~zF KB)
+    echo Next Steps:
+    echo 1. Transfer app-debug.apk to your phone
+    echo 2. Install APK on phone
+    echo 3. Allow "Install from Unknown Sources"
+    echo 4. Launch the app
     echo.
-    echo 📋 下一步:
-    echo 1. 将 app-debug.apk 传输到手机
-    echo 2. 在手机上安装 APK
-    echo 3. 允许"安装未知来源"权限
-    echo 4. 启动应用开始使用
+    echo You can also upload to Gitee Releases:
+    echo https://gitee.com/uhealu/magic-lock-screen/releases
     echo.
-    echo 💡 提示: 你也可以手动上传到 Gitee Releases
-    echo    访问: https://gitee.com/uhealu/magic-lock-screen/releases
-    echo.
+    explorer app\build\outputs\apk\debug
 ) else (
     echo ========================================
-    echo ❌ 构建失败
+    echo BUILD FAILED
     echo ========================================
     echo.
-    echo 请检查上面的错误信息
+    echo Please check the error messages above
     echo.
 )
 
