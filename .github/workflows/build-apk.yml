@@ -1,81 +1,92 @@
-diff --git a/.github/workflows/build-apk.yml b/.github/workflows/build-apk.yml
-index dc88061..d0e88bc 100644
---- a/.github/workflows/build-apk.yml
-+++ b/.github/workflows/build-apk.yml
-@@ -7,6 +7,16 @@ on:
-     branches: [ main, master ]
-   workflow_dispatch:
- 
-+# 关键修复：GITHUB_TOKEN 默认只有只读权限，
-+# softprops/action-gh-release 创建 Release 需要 contents: write，
-+# 否则报 "Resource not accessible by integration"。
-+permissions:
-+  contents: write
-+
-+concurrency:
-+  group: ${{ github.workflow }}-${{ github.ref }}
-+  cancel-in-progress: true
-+
- jobs:
-   build:
-     runs-on: ubuntu-latest
-@@ -16,38 +26,44 @@ jobs:
-       uses: actions/checkout@v5
- 
-     - name: 设置 JDK 17
--      uses: actions/setup-java@v4
-+      uses: actions/setup-java@v6
-       with:
-         distribution: 'temurin'
-         java-version: '17'
-+        cache: 'gradle'
- 
-     - name: 配置 Android SDK
-       run: |
-         echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-         echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
--        echo "sdk.dir=$ANDROID_HOME" >> local.properties || true
-+        echo "sdk.dir=$ANDROID_HOME" > local.properties
-         ls -la "$ANDROID_HOME"
-         yes | sdkmanager --licenses || true
- 
--    - name: 修复 Gradle wrapper 并赋予权限
-+    - name: 修复 Gradle wrapper 权限
-       run: |
-+        # 仓库里 gradlew 的可执行位没提交（git 里是 100644），这里补上
-         chmod +x gradlew
--        sed -i "s|DEFAULT_JVM_OPTS=.*|DEFAULT_JVM_OPTS='-Xmx2048m -Xms64m'|" gradlew
--        cat gradlew | grep DEFAULT_JVM_OPTS
-+        ls -l gradlew
- 
-     - name: 构建 Debug APK
-       run: ./gradlew assembleDebug --stacktrace --no-daemon
-+      env:
-+        # gradlew 内 DEFAULT_JVM_OPTS 只有 64m；JAVA_OPTS 在 exec 行更靠后，
-+        # 会覆盖它，避免 --no-daemon 下内存不足
-+        JAVA_OPTS: -Xmx2048m -Xms256m
- 
-     - name: 上传 APK
--      uses: actions/upload-artifact@v5
-+      uses: actions/upload-artifact@v7
-       with:
-         name: magic-lockscreen-apk
-         path: app/build/outputs/apk/debug/app-debug.apk
-         retention-days: 30
-+        if-no-files-found: error
- 
-     - name: 创建 Release (仅在推送到主分支时)
-       if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
--      uses: softprops/action-gh-release@v2
-+      uses: softprops/action-gh-release@v3
-       with:
-         tag_name: v1.0.${{ github.run_number }}
-         name: 魔术锁屏 v1.0.${{ github.run_number }}
-@@ -69,6 +85,7 @@ jobs:
-           - 仅供娱乐和魔术表演使用
-           - 在自己的设备上演示
-         files: app/build/outputs/apk/debug/app-debug.apk
-+        fail_on_unmatched_files: true
-         draft: false
-         prerelease: false
-       env:
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+# 关键修复：GITHUB_TOKEN 默认只有只读权限，
+# softprops/action-gh-release 创建 Release 需要 contents: write，
+# 否则报 "Resource not accessible by integration"。
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v5
+
+    - name: 设置 JDK 17
+      uses: actions/setup-java@v6
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        cache: 'gradle'
+
+    - name: 配置 Android SDK
+      run: |
+        echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+        echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
+        ls -la "$ANDROID_HOME"
+        yes | sdkmanager --licenses || true
+
+    - name: 修复 Gradle wrapper 权限
+      run: |
+        # 仓库里 gradlew 的可执行位没提交（git 里是 100644），这里补上
+        chmod +x gradlew
+        ls -l gradlew
+
+    - name: 构建 Debug APK
+      run: ./gradlew assembleDebug --stacktrace --no-daemon
+      env:
+        # gradlew 内 DEFAULT_JVM_OPTS 只有 64m；JAVA_OPTS 在 exec 行更靠后，
+        # 会覆盖它，避免 --no-daemon 下内存不足
+        JAVA_OPTS: -Xmx2048m -Xms256m
+
+    - name: 上传 APK
+      uses: actions/upload-artifact@v7
+      with:
+        name: magic-lockscreen-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 30
+        if-no-files-found: error
+
+    - name: 创建 Release (仅在推送到主分支时)
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      uses: softprops/action-gh-release@v3
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        name: 魔术锁屏 v1.0.${{ github.run_number }}
+        body: |
+          ## 🎭 魔术锁屏应用
+
+          ### 功能
+          - 仿小米锁屏界面
+          - 密码输入始终显示错误
+          - 在桌面上显示输入的密码
+
+          ### 使用方法
+          1. 下载 `app-debug.apk`
+          2. 传输到手机并安装
+          3. 允许"安装未知来源"权限
+          4. 启动应用开始使用
+
+          ### 注意事项
+          - 仅供娱乐和魔术表演使用
+          - 在自己的设备上演示
+        files: app/build/outputs/apk/debug/app-debug.apk
+        fail_on_unmatched_files: true
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
