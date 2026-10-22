@@ -29,14 +29,14 @@ jobs:
         ls -la "$ANDROID_HOME"
         yes | sdkmanager --licenses || true
 
-    - name: 授予 Gradle 执行权限
-      run: chmod +x gradlew
+    - name: 修复 Gradle wrapper 并赋予权限
+      run: |
+        chmod +x gradlew
+        sed -i "s|DEFAULT_JVM_OPTS=.*|DEFAULT_JVM_OPTS='-Xmx2048m -Xms64m'|" gradlew
+        cat gradlew | grep DEFAULT_JVM_OPTS
 
     - name: 构建 Debug APK
-      env:
-        GRADLE_OPTS: '-Xmx2048m'
-        JAVA_OPTS: '-Xmx2048m'
-      run: bash -lc 'unset _JAVA_OPTIONS JAVA_TOOL_OPTIONS; ./gradlew assembleDebug --stacktrace --no-daemon'
+      run: ./gradlew assembleDebug --stacktrace --no-daemon
 
     - name: 上传 APK
       uses: actions/upload-artifact@v5
